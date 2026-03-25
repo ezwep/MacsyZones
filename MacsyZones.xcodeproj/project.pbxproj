@@ -42,6 +42,24 @@
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		AABB0001DEADBEEF00000001 /* Reset TCC Accessibility */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Reset TCC Accessibility";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "tccutil reset Accessibility dev.ezwep.MacsyZonesDev 2>/dev/null || true\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		21B811942C8CD9AA00661EF9 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -105,6 +123,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 21B811A62C8CD9AC00661EF9 /* Build configuration list for PBXNativeTarget "MacsyZones" */;
 			buildPhases = (
+				AABB0001DEADBEEF00000001 /* Reset TCC Accessibility */,
 				21B811932C8CD9AA00661EF9 /* Sources */,
 				21B811942C8CD9AA00661EF9 /* Frameworks */,
 				21B811952C8CD9AA00661EF9 /* Resources */,
@@ -276,7 +295,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacsyZones/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MacsyZones;
+				INFOPLIST_KEY_CFBundleDisplayName = "MacsyZones Dev";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -295,7 +314,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
 				MARKETING_VERSION = 2.2.2;
 				OTHER_SWIFT_FLAGS = "-DAPPSTORE";
-				PRODUCT_BUNDLE_IDENTIFIER = MeowingCat.MacsyZones;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ezwep.MacsyZonesDev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = auto;
@@ -443,7 +462,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacsyZones/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MacsyZones;
+				INFOPLIST_KEY_CFBundleDisplayName = "MacsyZones Dev";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -461,7 +480,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
 				MARKETING_VERSION = 2.2.2;
-				PRODUCT_BUNDLE_IDENTIFIER = MeowingCat.MacsyZones;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ezwep.MacsyZonesDev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = auto;
@@ -492,7 +511,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MacsyZones/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MacsyZones;
+				INFOPLIST_KEY_CFBundleDisplayName = "MacsyZones Dev";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_LSUIElement = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
@@ -510,7 +529,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 11.5;
 				MARKETING_VERSION = 2.2.2;
-				PRODUCT_BUNDLE_IDENTIFIER = MeowingCat.MacsyZones;
+				PRODUCT_BUNDLE_IDENTIFIER = dev.ezwep.MacsyZonesDev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = auto;

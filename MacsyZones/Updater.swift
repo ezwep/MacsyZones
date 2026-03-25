@@ -1,13 +1,5 @@
 //
-// MacsyZones, macOS system utility for managing windows on your Mac.
-//
-// https://macsyzones.com
-//
-// Copyright © 2024, Oğuzhan Eroğlu <meowingcate@gmail.com> (https://meowingcat.io)
-//
-// This file is part of MacsyZones.
-// Licensed under GNU General Public License v3.0
-// See LICENSE file.
+// MacsyZones Dev — Auto-updater linked to ezwep/MacsyZones.
 //
 
 import Foundation
@@ -16,16 +8,16 @@ class AppUpdater: ObservableObject {
     @Published var isChecking = false
     @Published var isUpdatable: Bool?
     @Published var isDownloading = false
-    
+
     @Published var latestVersion: String?
-    
+
     let updater = GitHubUpdater()
-    
+
     func checkForUpdates(download: Bool = false) {
         Task { @MainActor in
             self.isChecking = true
         }
-        
+
         updater.checkForUpdates { version in
             guard let version = version else {
                 Task { @MainActor in
@@ -33,10 +25,10 @@ class AppUpdater: ObservableObject {
                     self.isDownloading = false
                     self.isUpdatable = false
                 }
-                
+
                 return
             }
-            
+
             Task { @MainActor in
                 self.latestVersion = version
                 self.isChecking = false
@@ -55,12 +47,12 @@ class AppUpdater: ObservableObject {
 func isVersionGreater(_ version: String, than otherVersion: String) -> Bool {
     let cleanVersion = version.hasPrefix("v") ? String(version.dropFirst()) : version
     let cleanOtherVersion = otherVersion.hasPrefix("v") ? String(otherVersion.dropFirst()) : otherVersion
-    
+
     let versionComponents = cleanVersion.split(separator: ".")
     let otherVersionComponents = cleanOtherVersion.split(separator: ".")
-    
+
     let minComponents = min(versionComponents.count, otherVersionComponents.count)
-    
+
     for i in 0..<minComponents {
         guard let vNum = Int(versionComponents[i]), let otherNum = Int(otherVersionComponents[i]) else {
             if versionComponents[i] > otherVersionComponents[i] {
@@ -70,14 +62,14 @@ func isVersionGreater(_ version: String, than otherVersion: String) -> Bool {
             }
             continue
         }
-        
+
         if vNum > otherNum {
             return true
         } else if vNum < otherNum {
             return false
         }
     }
-    
+
     return versionComponents.count > otherVersionComponents.count
 }
 
@@ -87,9 +79,11 @@ func getApplicationsPath() -> URL {
 
 class GitHubAPI {
     let session = URLSession.shared
+    static let repoOwner = "ezwep"
+    static let repoName = "MacsyZones"
 
     func checkLatestRelease(onChecked: @escaping ((version: String, url: URL)?) -> Void) {
-        let urlString = "https://api.github.com/repos/rohanrhu/MacsyZones/releases/latest"
+        let urlString = "https://api.github.com/repos/\(GitHubAPI.repoOwner)/\(GitHubAPI.repoName)/releases/latest"
         guard let url = URL(string: urlString) else {
             onChecked(nil)
             return
@@ -110,7 +104,7 @@ class GitHubAPI {
                     let version = tagName.replacingOccurrences(of: "v", with: "")
                     let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as! String
                     let isGreater = isVersionGreater(version, than: appVersion)
-                    
+
                     onChecked(isGreater ? (version: version, url: URL(string: downloadUrl)!): nil)
                 } else {
                     onChecked(nil)
@@ -121,7 +115,7 @@ class GitHubAPI {
                 onChecked(nil)
             }
         }
-        
+
         task.resume()
     }
 }
@@ -130,61 +124,62 @@ class GitHubUpdater {
     let githubAPI = GitHubAPI()
     let fileManager = FileManager.default
     let applicationsDirectory = NSSearchPathForDirectoriesInDomains(.applicationDirectory, .userDomainMask, true).first!
-    let appName = "MacsyZones"
-    
+    let appName = "MacsyZones Dev"
+
     func checkForUpdates(onChecked: ((String?) -> Void)? = nil, onDownloaded: ((Bool) -> Void)? = nil) {
         githubAPI.checkLatestRelease { [self] latestRelease in
             guard let latestRelease else {
                 onChecked?(nil)
                 return
             }
-            
+
             onChecked?(latestRelease.version)
-            
+
             self.downloadZip(from: latestRelease.url, version: latestRelease.version) { success in
                 onDownloaded?(success)
             }
         }
     }
-    
+
     private func downloadZip(from url: URL, version: String, onCompleted: ((Bool) -> Void)? = nil) {
         let destination = URL(fileURLWithPath: "\(NSTemporaryDirectory())\(appName).zip")
-        
+
         downloadFile(from: url, to: destination) { [self] tmpPath in
             guard let tmpPath = tmpPath else {
                 debugLog("Error downloading update!")
                 onCompleted?(false)
                 return
             }
-            
+
             onCompleted?(true)
-            
+
             self.extractZip(from: tmpPath)
         }
     }
-    
+
     private func extractZip(from zipURL: URL) {
         let fileManager = FileManager.default
         let destinationFolder = getApplicationsPath()
-        let destinationApp = destinationFolder.appendingPathComponent("MacsyZones.app")
+        let destinationApp = destinationFolder.appendingPathComponent("MacsyZones Dev.app")
         let tempDirectory = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        
+
         do {
             try fileManager.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
-            
+
             let extractProcess = Process()
             extractProcess.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
             extractProcess.arguments = ["-xk", "--extattr", zipURL.path, tempDirectory.path]
             try extractProcess.run()
             extractProcess.waitUntilExit()
-            
-            let extractedAppURL = tempDirectory.appendingPathComponent("MacsyZones.app")
-            guard fileManager.fileExists(atPath: extractedAppURL.path) else {
+
+            // Look for the app in the extracted zip (could be named differently in the release)
+            let extractedContents = try fileManager.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil)
+            guard let extractedAppURL = extractedContents.first(where: { $0.pathExtension == "app" }) else {
                 debugLog("Error: Extracted app not found.")
                 try? fileManager.removeItem(at: tempDirectory)
                 return
             }
-            
+
             let extractedInfoPlist = extractedAppURL.appendingPathComponent("Contents/Info.plist")
             guard let extractedPlistData = try? Data(contentsOf: extractedInfoPlist),
                   let extractedPlist = try? PropertyListSerialization.propertyList(from: extractedPlistData, options: [], format: nil) as? [String: Any],
@@ -193,59 +188,59 @@ class GitHubUpdater {
                 try? fileManager.removeItem(at: tempDirectory)
                 return
             }
-            
+
             let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
-            
+
             updateState.setUpdateAttempt(currentVersion: currentVersion, targetVersion: targetVersion)
-            
+
             let scriptURL = tempDirectory.appendingPathComponent("update.sh")
             let script = """
             #!/bin/bash
             sleep 2
-            
-            # Remove quarantine from extracted app (prevents GateKeeper issues)
+
+            # Remove quarantine from extracted app
             xattr -r -d com.apple.quarantine "\(extractedAppURL.path)" 2>/dev/null || true
-            
+
             # Remove old app
             rm -rf "\(destinationApp.path)"
-            
+
             # Use ditto to preserve extended attributes during move
             ditto "\(extractedAppURL.path)" "\(destinationApp.path)"
-            
+
             # Final quarantine cleanup on installed app
             xattr -r -d com.apple.quarantine "\(destinationApp.path)" 2>/dev/null || true
-            
+
             # Give filesystem time to settle
             sleep 1
-            
+
             open "\(destinationApp.path)"
             rm -rf "\(tempDirectory.path)"
             exit 0
             """
-            
+
             try script.write(to: scriptURL, atomically: true, encoding: .utf8)
             try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
-            
+
             let updateProcess = Process()
             updateProcess.executableURL = URL(fileURLWithPath: "/bin/bash")
             updateProcess.arguments = ["-c", "nohup \"\(scriptURL.path)\" > /dev/null 2>&1 &"]
             try updateProcess.run()
-            
+
             DispatchQueue.main.async {
                 let alert = NSAlert()
                 alert.window.level = .floating
                 alert.alertStyle = .informational
-                alert.messageText = "MacsyZones"
+                alert.messageText = "MacsyZones Dev"
                 alert.informativeText = "An update will now start. The app will restart automatically."
                 alert.addButton(withTitle: "OK")
-                
+
                 alert.window.makeKeyAndOrderFront(nil)
                 NSApplication.shared.activate(ignoringOtherApps: true)
-                
+
                 alert.runModal()
-                
+
                 restartApp()
-                
+
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     NSApp.terminate(nil)
                 }
@@ -263,7 +258,7 @@ func downloadFile(from url: URL, to destination: URL, onComplete: @escaping (URL
             onComplete(nil)
             return
         }
-        
+
         onComplete(tempURL)
     }
     task.resume()

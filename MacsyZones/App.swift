@@ -174,7 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     }
     
     func checkIfRunning() {
-        let notificationName = "MeowingCat.MacsyZones.CheckIfRunning"
+        let notificationName = "dev.ezwep.MacsyZonesDev.CheckIfRunning"
         let uniqueNotification = Notification.Name(notificationName)
         
         let runningApps = NSWorkspace.shared.runningApplications
@@ -194,8 +194,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
             alert.window.level = .screenSaver
             alert.window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
             alert.alertStyle = .critical
-            alert.messageText = "MacsyZones is already running"
-            alert.informativeText = "Another instance of MacsyZones is already running. This instance will exit."
+            alert.messageText = "MacsyZones Dev is already running"
+            alert.informativeText = "Another instance of MacsyZones Dev is already running. This instance will exit."
             alert.addButton(withTitle: "OK")
             
             alert.window.center()
@@ -302,7 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         let options: [String: Any] = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         hasAccessibilityPermission = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
-    
+
     func requestAccessibilityPermissions() {
         if !hasAccessibilityPermission {
             showAccessibilityPermissionPopover()

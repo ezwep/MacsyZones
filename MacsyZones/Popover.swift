@@ -160,15 +160,12 @@ struct ShortcutInputView: View {
 }
 
 struct Main: View {
-    @State var proLock: ProLock
-    
     @Binding var page: String
-    
+
     @ObservedObject var settings = appSettings
-    
+
     @ObservedObject var layouts = userLayouts
-    
-    @State var showNotProDialog = false
+
     @State var showAboutDialog = false
     @State var showResetToDefaultsDialog = false
     
@@ -248,11 +245,7 @@ struct Main: View {
     var body: some View {
         VStack(alignment: .center, spacing: 8) {
             HStack(alignment: .center, spacing: 5) {
-                if proLock.isPro {
-                    Text("MacsyZones Pro").font(.headline)
-                } else {
-                    Text("MacsyZones").font(.headline)
-                }
+                Text("MacsyZones Dev").font(.headline)
                 Button(action: {
                     resetDialogs()
                     showDialog = true
@@ -631,25 +624,8 @@ struct Main: View {
             }
             
             #if !APPSTORE
-            if !proLock.isPro {
-                Divider().padding(.vertical, 2)
-                Button(action: { page = "unlock" }) {
-                    HStack {
-                        Image(systemName: "heart.fill").foregroundColor(.red)
-                        Text("Unlock Pro Version").fontWeight(.bold)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .padding(10)
-                .background(Color.pink.opacity(0.2))
-                .cornerRadius(7)
-                .alert(isPresented: $showNotProDialog) {
-                    Alert(
-                        title: Text("Omg! 😊"),
-                        message: Text("You must buy MacsyZones Pro to unlock this feature."),
-                        dismissButton: .default(Text("OK"))
-                    )
-                }
+            if false {
+                EmptyView()
             }
             #endif
             
@@ -833,26 +809,14 @@ struct Main: View {
                     dismissButton: .default(Text("OK"))
                 )
             } else {
-                let licenseInfo = proLock.isPro ? "\nLicensed for: \(proLock.owner ?? "Unknown User")" : "(Free version)"
-                
                 return Alert(
-                    title: Text("About MacsyZones"),
+                    title: Text("About MacsyZones Dev"),
                     message: Text("""
-                        Copyright ©️ 2024, Oğuzhan Eroğlu (https://meowingcat.io).
-                        
-                        MacsyZones helps you organize your windows efficiently.
-                        
+                        Based on MacsyZones by Oğuzhan Eroğlu.
+
                         Version: \(appVersion) (Build: \(appBuild))
-                    
-                        \(!proLock.isPro ? "Please buy MacsyZones to support me. 🥳": "Thank you for your support. 🥳")
-                        \(licenseInfo)
                     """),
-                    primaryButton: .default(Text("Visit Website")) {
-                        if let url = URL(string: "https://macsyzones.com") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    },
-                    secondaryButton: .cancel(Text("OK"))
+                    dismissButton: .default(Text("OK"))
                 )
             }
         }
@@ -1207,8 +1171,6 @@ struct GridEditorView: View {
 
 struct TrayPopupView: View {
     @ObservedObject var ready = macsyReady
-    @ObservedObject var proLock = macsyProLock
-    
     @State private var page = "main"
     @ObservedObject var layouts = userLayouts
     
@@ -1229,7 +1191,7 @@ struct TrayPopupView: View {
         if !ready.isReady {
             VStack {
                 VStack(alignment: .center) {
-                    Text("MacsyZones is loading...").padding(.bottom, 10).padding(.top, 25)
+                    Text("MacsyZones Dev is loading...").padding(.bottom, 10).padding(.top, 25)
                     ProgressView().padding(.bottom, 25)
                 }.frame(width: 240)
             }
@@ -1244,10 +1206,8 @@ struct TrayPopupView: View {
                     DuplicateView(page: $page, layoutName: generateUniqueDuplicateName())
                 case "editGrid":
                     GridEditorView(page: $page)
-                case "unlock":
-                    UnlockProView(proLock: proLock, page: $page)
                 default:
-                    Main(proLock: proLock, page: $page)
+                    Main(page: $page)
                 }
             }
             .padding()
