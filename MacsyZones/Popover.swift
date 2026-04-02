@@ -263,6 +263,19 @@ struct Main: View {
                         $0.focusEffectDisabled(true)
                     } else { $0 }
                 }
+                Spacer()
+                Button(action: { closeMainPopover() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(BorderlessButtonStyle())
+                .modifier {
+                    if #available(macOS 14.0, *) {
+                        $0.focusEffectDisabled(true)
+                    } else { $0 }
+                }
             }
             .padding(.bottom, 10)
 
@@ -544,12 +557,14 @@ struct Main: View {
                             }
                             
                             Picker("Zone Highlighting Strategy", selection: $settings.snapHighlightStrategy) {
+                                Text("Window Overlap").tag(SnapHighlightStrategy.windowOverlap)
+                                Text("Containment").tag(SnapHighlightStrategy.containment)
                                 Text("Center Proximity").tag(SnapHighlightStrategy.centerProximity)
                                 Text("Flat").tag(SnapHighlightStrategy.flat)
                             }
                             .labelsHidden()
                             .pickerStyle(MenuPickerStyle())
-                            .onChange(of: settings.snapKey) { _ in appSettings.save() }
+                            .onChange(of: settings.snapHighlightStrategy) { _ in appSettings.save() }
                         }
                         
                         Divider().padding(.vertical, 2)

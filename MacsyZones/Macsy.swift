@@ -32,6 +32,7 @@ var draggedWindowElement: AXUIElement?
 var draggedWindowInitialPosition: CGPoint?
 
 var windowMovingOnScreen: NSScreen? = nil
+var lastHoveredSectionWindow: SectionWindow? = nil
 
 func isSnapKeyPressed() -> Bool {
     guard appSettings.snapKey != "None" else { return false }
@@ -248,91 +249,174 @@ var shakeMagnitudeCount: CGFloat = 0
 
 var justDidMouseUp = false
 
+func getDraggedWindowRect() -> NSRect? {
+    guard let element = toLeaveElement ?? draggedWindowElement else { return nil }
+
+    var posRef: CFTypeRef?, sizeRef: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posRef) == .success,
+          AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeRef) == .success
+    else { return nil }
+
+    var pos = CGPoint.zero, size = CGSize.zero
+    AXValueGetValue(posRef as! AXValue, .cgPoint, &pos)
+    AXValueGetValue(sizeRef as! AXValue, .cgSize, &size)
+
+    // AX uses top-down y-axis, NSScreen uses bottom-up → convert
+    let screenHeight = NSScreen.screens.first?.frame.height ?? 0
+    let flippedY = screenHeight - pos.y - size.height
+
+    return NSRect(x: pos.x, y: flippedY, width: size.width, height: size.height)
+}
+
+func getZoneRect(for sectionWindow: SectionWindow, on screen: NSScreen) -> NSRect {
+    let screenSize = screen.frame
+    let screenOrigin = screen.frame.origin
+    let bounds = sectionWindow.getBounds(for: screen)
+    return NSRect(
+        x: screenOrigin.x + bounds.xPercentage * screenSize.width,
+        y: screenOrigin.y + bounds.yPercentage * screenSize.height,
+        width: bounds.widthPercentage * screenSize.width,
+        height: bounds.heightPercentage * screenSize.height
+    )
+}
+
 func getHoveredSectionWindow() -> SectionWindow? {
     var hoveredSectionWindow: SectionWindow?
-    
+
     guard let focusedScreen = getFocusedScreen() else {
         for layout in userLayouts.layouts.values {
             for sectionWindow in layout.layoutWindow.sectionWindows {
                 sectionWindow.isHovered = false
             }
         }
-        
+        lastHoveredSectionWindow = nil
         return nil
     }
-    
+
     let mouseLocation = NSEvent.mouseLocation
-    
+    let sectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows
+
     if isFitting {
+        // Stage 1: Proportional center hot zone (for non-centerProximity strategies)
         if appSettings.snapHighlightStrategy != .centerProximity && appSettings.prioritizeCenterToSnap {
-            for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
-                let screenSize = focusedScreen.frame
-                let bounds = sectionWindow.getBounds(for: focusedScreen)
-                let width = bounds.widthPercentage * screenSize.width
-                let height = bounds.heightPercentage * screenSize.height
-                let x = focusedScreen.frame.origin.x + (bounds.xPercentage * screenSize.width + width / 2) - 50
-                let y = focusedScreen.frame.origin.y + (bounds.yPercentage * screenSize.height + height / 2) - 50
-                
-                if mouseLocation.x > x && mouseLocation.x < x + 100 && mouseLocation.y > y && mouseLocation.y < y + 100 {
+            for sectionWindow in sectionWindows {
+                let rect = getZoneRect(for: sectionWindow, on: focusedScreen)
+                let hotZoneW = min(max(rect.width * 0.2, 40), 150)
+                let hotZoneH = min(max(rect.height * 0.2, 40), 150)
+                let centerX = rect.midX
+                let centerY = rect.midY
+                let hotRect = NSRect(
+                    x: centerX - hotZoneW / 2,
+                    y: centerY - hotZoneH / 2,
+                    width: hotZoneW,
+                    height: hotZoneH
+                )
+
+                if hotRect.contains(mouseLocation) {
                     hoveredSectionWindow = sectionWindow
                     break
                 }
             }
         }
-        
+
+        // Stage 2: Strategy-based detection
         if hoveredSectionWindow == nil {
-            let sortedSectionWindows: [SectionWindow]
-            
-            if appSettings.snapHighlightStrategy == .centerProximity {
-                sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
-                    let screenSize = focusedScreen.frame
-                    let screenOrigin = focusedScreen.frame.origin
-                    
-                    let bounds1 = $0.getBounds(for: focusedScreen)
-                    let center1X = screenOrigin.x + bounds1.xPercentage * screenSize.width + (bounds1.widthPercentage * screenSize.width) / 2
-                    let center1Y = screenOrigin.y + bounds1.yPercentage * screenSize.height + (bounds1.heightPercentage * screenSize.height) / 2
-                    let distance1 = sqrt(pow(mouseLocation.x - center1X, 2) + pow(mouseLocation.y - center1Y, 2))
-                    
-                    let bounds2 = $1.getBounds(for: focusedScreen)
-                    let center2X = screenOrigin.x + bounds2.xPercentage * screenSize.width + (bounds2.widthPercentage * screenSize.width) / 2
-                    let center2Y = screenOrigin.y + bounds2.yPercentage * screenSize.height + (bounds2.heightPercentage * screenSize.height) / 2
-                    let distance2 = sqrt(pow(mouseLocation.x - center2X, 2) + pow(mouseLocation.y - center2Y, 2))
-                    
-                    return distance1 < distance2
+            switch appSettings.snapHighlightStrategy {
+            case .windowOverlap:
+                if let windowRect = getDraggedWindowRect() {
+                    let windowArea = windowRect.width * windowRect.height
+                    if windowArea > 0 {
+                        var bestOverlapFraction: CGFloat = 0
+                        for sectionWindow in sectionWindows {
+                            let zoneRect = getZoneRect(for: sectionWindow, on: focusedScreen)
+                            let intersection = windowRect.intersection(zoneRect)
+                            guard !intersection.isNull else { continue }
+
+                            let overlapArea = intersection.width * intersection.height
+                            let fraction = overlapArea / windowArea
+
+                            if fraction > bestOverlapFraction {
+                                bestOverlapFraction = fraction
+                                hoveredSectionWindow = sectionWindow
+                            }
+                        }
+                    }
                 }
-            } else {
-                sortedSectionWindows = userLayouts.currentLayout.layoutWindow.sectionWindows.sorted {
-                    let frame1 = $0.window.frame
-                    let frame2 = $1.window.frame
-                    return (frame1.width * frame1.height) < (frame2.width * frame2.height)
+
+            case .containment:
+                // Select the zone where the mouse is deepest inside (max min-edge-distance)
+                var bestDepth: CGFloat = -1
+                for sectionWindow in sectionWindows {
+                    let rect = getZoneRect(for: sectionWindow, on: focusedScreen)
+                    guard rect.contains(mouseLocation) else { continue }
+
+                    let minEdgeDist = min(
+                        mouseLocation.x - rect.minX,
+                        rect.maxX - mouseLocation.x,
+                        mouseLocation.y - rect.minY,
+                        rect.maxY - mouseLocation.y
+                    )
+                    if minEdgeDist > bestDepth {
+                        bestDepth = minEdgeDist
+                        hoveredSectionWindow = sectionWindow
+                    }
+                }
+
+            case .centerProximity:
+                let sorted = sectionWindows.sorted {
+                    let rect1 = getZoneRect(for: $0, on: focusedScreen)
+                    let rect2 = getZoneRect(for: $1, on: focusedScreen)
+                    let d1 = sqrt(pow(mouseLocation.x - rect1.midX, 2) + pow(mouseLocation.y - rect1.midY, 2))
+                    let d2 = sqrt(pow(mouseLocation.x - rect2.midX, 2) + pow(mouseLocation.y - rect2.midY, 2))
+                    return d1 < d2
+                }
+                for sectionWindow in sorted {
+                    let rect = getZoneRect(for: sectionWindow, on: focusedScreen)
+                    if rect.contains(mouseLocation) {
+                        hoveredSectionWindow = sectionWindow
+                        break
+                    }
+                }
+
+            case .flat:
+                let sorted = sectionWindows.sorted {
+                    let f1 = $0.window.frame
+                    let f2 = $1.window.frame
+                    return (f1.width * f1.height) < (f2.width * f2.height)
+                }
+                for sectionWindow in sorted {
+                    let rect = getZoneRect(for: sectionWindow, on: focusedScreen)
+                    if rect.contains(mouseLocation) {
+                        hoveredSectionWindow = sectionWindow
+                        break
+                    }
                 }
             }
-            
-            for sectionWindow in sortedSectionWindows {
-                let screenSize = focusedScreen.frame
-                let screenOrigin = focusedScreen.frame.origin
-                let bounds = sectionWindow.getBounds(for: focusedScreen)
-                let width = bounds.widthPercentage * screenSize.width
-                let height = bounds.heightPercentage * screenSize.height
-                let x = screenOrigin.x + bounds.xPercentage * screenSize.width
-                let y = screenOrigin.y + bounds.yPercentage * screenSize.height
-                
-                if mouseLocation.x > x && mouseLocation.x < x + width && mouseLocation.y > y && mouseLocation.y < y + height {
-                    hoveredSectionWindow = sectionWindow
-                    break
-                }
+        }
+
+        // Stage 3: Hysteresis — stick to previous zone if mouse is still well inside it
+        let hysteresisMargin: CGFloat = 15.0
+        if let lastZone = lastHoveredSectionWindow,
+           lastZone !== hoveredSectionWindow,
+           hoveredSectionWindow != nil {
+            let lastRect = getZoneRect(for: lastZone, on: focusedScreen)
+            let insetRect = lastRect.insetBy(dx: hysteresisMargin, dy: hysteresisMargin)
+            if insetRect.width > 0 && insetRect.height > 0 && insetRect.contains(mouseLocation) {
+                hoveredSectionWindow = lastZone
             }
         }
     }
 
-    for sectionWindow in userLayouts.currentLayout.layoutWindow.sectionWindows {
+    lastHoveredSectionWindow = hoveredSectionWindow
+
+    for sectionWindow in sectionWindows {
         sectionWindow.isHovered = (sectionWindow === hoveredSectionWindow)
     }
-    
+
     if let hoveredSectionWindow = hoveredSectionWindow {
         hoveredSectionWindow.window.orderFront(nil)
     }
-    
+
     return hoveredSectionWindow
 }
 
@@ -369,6 +453,7 @@ func onWindowMoved(observer: AXObserver, element: AXUIElement, notification: CFS
             toLeaveElement = nil
             toLeaveSectionWindow = nil
             toLeaveGridRect = nil
+            lastHoveredSectionWindow = nil
 
             return
         }
@@ -991,6 +1076,8 @@ private func handleZoneMouseUp() {
         toLeaveSectionWindow = hoveredSectionWindow
     }
 
+    lastHoveredSectionWindow = nil
+
     guard let window = toLeaveElement else {
         isFitting = false
         toLeaveElement = nil
@@ -1035,6 +1122,7 @@ private func handleZoneMouseUp() {
 }
 
 private func handleGridMouseUp() {
+    lastHoveredSectionWindow = nil
     let gridLayoutWindow = userLayouts.currentLayout.gridLayoutWindow
 
     gridLayoutWindow?.updateSelectionToMousePosition()

@@ -8,6 +8,8 @@
 import SwiftUI
 
 enum SnapHighlightStrategy: String, Codable {
+    case windowOverlap
+    case containment
     case centerProximity
     case flat
 }
@@ -50,7 +52,7 @@ class AppSettings: UserData, ObservableObject {
     private static let defaultShowSnapResizersOnHover: Bool = true
     private static let defaultCycleWindowsForwardShortcut: String = "Command+]"
     private static let defaultCycleWindowsBackwardShortcut: String = "Command+["
-    private static let defaultSnapHighlightStrategy: SnapHighlightStrategy = .centerProximity
+    private static let defaultSnapHighlightStrategy: SnapHighlightStrategy = .containment
     
     @Published var modifierKey: String = defaultModifierKey
     @Published var snapKey: String = defaultSnapKey

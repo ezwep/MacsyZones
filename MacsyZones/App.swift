@@ -46,6 +46,14 @@ var popover: NSPopover!
 var accessibilityDialog: AccessibilityDialog?
 var updateFailedDialog: UpdateFailedDialog?
 
+func closeMainPopover() {
+    PopoverState.shared.shouldStopListening = true
+    popover?.performClose(nil)
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        PopoverState.shared.shouldStopListening = false
+    }
+}
+
 var mouseUpMonitor: Any?
 var mouseDownMonitor: Any?
 var mouseDragMonitor: Any?
@@ -264,11 +272,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
         NSApp.terminate(nil)
     }
     
+    var popoverLastClosedAt: Date?
+
     @objc func togglePopover(sender: AnyObject?) {
         if let button = statusItem?.button {
             if popover.isShown {
                 closePopover(sender: sender)
             } else {
+                // Prevent re-opening if the popover was just dismissed by a transient click
+                // on the status bar button (double-fire: transient-close + button-action)
+                if let lastClosed = popoverLastClosedAt, Date().timeIntervalSince(lastClosed) < 0.3 {
+                    return
+                }
                 showPopover(sender: button)
             }
         }
@@ -291,8 +306,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, Sen
     }
     
     func popoverWillClose(_ notification: Notification) {
+        popoverLastClosedAt = Date()
         PopoverState.shared.shouldStopListening = true
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             PopoverState.shared.shouldStopListening = false
         }
